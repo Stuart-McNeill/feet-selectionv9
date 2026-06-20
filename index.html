@@ -3,12 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Foot Analysis V5 - Layered Diagnostic Engine</title>
+    <title>3D Foot Analysis V5 - GitHub Testing Engine</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #0a0a0c; touch-action: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #0a0a0c; 
+            touch-action: none; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+        }
         #ui-layer { display: none !important; }
         
-        /* Interactive overlay for testing on web, which mirrors data sent via the Expo bridge */
+        /* Local Web Testing Toolbar - Visible on GitHub Pages for manual validation */
+        #github-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(15, 15, 20, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            z-index: 1001;
+            display: flex;
+            gap: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .test-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #8a8a93;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease;
+        }
+
+        .test-btn.active {
+            background: #ff4400;
+            border-color: #ff5511;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(255, 68, 0, 0.4);
+        }
+
+        .test-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        /* Dynamic Diagnostics Sidebar Panel */
         #diagnostic-display {
             position: absolute;
             bottom: 20px;
@@ -37,9 +84,14 @@
 </head>
 <body>
 
+<div id="github-controls">
+    <button id="web-btn-rotate" class="test-btn active">Move / Rotate</button>
+    <button id="web-btn-mark" class="test-btn">Probe Anatomy</button>
+</div>
+
 <div id="diagnostic-display">
     <div class="diag-title">Anatomical Layer Diagnostics</div>
-    <div id="diagnostic-results">Set mode to "MARK" via your mobile app control layer, then tap the model to dissect intersecting structures...</div>
+    <div id="diagnostic-results">Use the toolbar above to switch profiles. Set to "Probe Anatomy" and click the foot layout to dissect layers...</div>
 </div>
 
 <script type="importmap">
@@ -75,7 +127,7 @@ const PRESET_REGIONS = [
   { name: "Left foot - Plantar Fibular Sesamoid", pos: [-0.08952, 0.00688, 0.23350], rot: [0.00000, 0.00000, 0.00000], scale: [0.04182, 0.02520, 0.03852] },
   { name: "Left foot - Dorsal 1st Metatarsal", pos: [-0.13058, 0.19897, 0.12122], rot: [0.32092, -0.04192, 0.08089], scale: [0.10811, 0.10000, 0.23570] },
   { name: "Left foot - Medial 1st Metatarsal", pos: [-0.16198, 0.10509, 0.13224], rot: [0.15718, -0.05458, 0.00836], scale: [0.03988, 0.11276, 0.30453] },
-  { name: "Left foot - Plantar 1st Metatarsal", pos: [-0.12261, 0.03913, 0.07892], rot: [0.13096, -0.00243, 0.00878], scale: [0.10220, 0.06527, 0.23585] },
+  { name: "Left foot - Plantar 1st Metatarsal", pos: [-0.12261, 0.03913, 0.07892], rot: [0.13096, -0.00243, -0.00878], scale: [0.10220, 0.06527, 0.23585] },
   { name: "Left foot - Dorsal 2nd Metatarsophalangeal joint", pos: [-0.03394, 0.16079, 0.28600], rot: [0.32320, 0.05148, 0.00935], scale: [0.08952, 0.07761, 0.10000] },
   { name: "Left foot - Dorsal Medial Cuneiform", pos: [-0.11574, 0.24685, -0.00388], rot: [0.29866, -0.05346, -0.01968], scale: [0.07438, 0.10000, 0.09346] },
   { name: "Left foot - Medial Medial Cuneiform", pos: [-0.17017, 0.14822, -0.04030], rot: [0.20940, -0.01620, 0.01669], scale: [0.10000, 0.12331, 0.08063] },
@@ -233,7 +285,7 @@ const PRESET_REGIONS = [
   { name: "Right foot - 5th Toe Apex", pos: [-0.14734, 0.03651, 0.35117], rot: [0.95715, -0.02880, 0.12951], scale: [0.01931, 0.01921, 0.00342] },
   { name: "Right foot - 5th Toenail", pos: [-0.15017, 0.04966, 0.34246], rot: [2.06427, 0.02082, -1.54951], scale: [0.02826, 0.02915, 0.00717] },
   { name: "Right foot - Dorsal 5th Distal Interphalangeal joint", pos: [-0.15283, 0.07293, 0.34000], rot: [0.35443, 0.05178, 0.06247], scale: [0.02608, 0.03114, 0.00835] },
-  { name: "Right foot - Dorsal 5th Proximal Interphalangeal joint", pos: [-0.15502, 0.07566, 0.32051], rot: [0.36554, 0.02790, 0.04379], scale: [0.03082, 0.04780, 0.00763] },
+  { name: "Right foot - Dorsal 5th Proximal Interphalangeal joint", pos: [-0.15502, 0.07566, 0.32051], rot: [0.36554, -0.02790, 0.04379], scale: [0.03082, 0.04780, 0.00763] },
   { name: "Right foot - Plantar 5th Distal Interphalangeal joint", pos: [-0.14818, 0.03843, 0.33128], rot: [0.27723, -0.03712, 0.12412], scale: [0.03019, 0.04120, 0.00807] },
   { name: "Right foot - Plantar 5th Proximal Interphalangeal joint", pos: [-0.15532, 0.04729, 0.30191], rot: [0.30274, -0.02221, 0.07564], scale: [0.03099, 0.04631, 0.00751] },
   { name: "Right foot - 5th Dorsal Toe", pos: [-0.15913, 0.07617, 0.30178], rot: [0.27989, 0.05807, 0.12434], scale: [0.03655, 0.01103, 0.07757] },
@@ -297,7 +349,7 @@ let footGroup = new THREE.Group();
 let markerGroup = new THREE.Group();
 let regionGroup = new THREE.Group(); 
 let isLoaded = false;
-let mode = "rotate"; 
+let mode = "rotate"; // Standard base configuration property
 let markerLogs = [];
 let jsonDatabase = null;
 
@@ -329,13 +381,16 @@ async function init() {
 
     PRESET_REGIONS.forEach(data => addRegion(data.name, data.pos, data.rot, data.scale));
 
-    // Try loading your anatomical data dynamically from the local repository root
+    // Pull database contents safely from repository directory tree framework
     try {
         const response = await fetch('anatomy_tracer.json');
         jsonDatabase = await response.json();
     } catch (e) {
-        console.warn("Anatomy database json file not initialized locally yet. Relying on baseline bounding calculations.");
+        console.warn("Local JSON database template not found. Ensure anatomy_tracer.json sits in your server root directory.");
     }
+
+    // Bind local web interface buttons for browser manual verification testing
+    setupWebTestingControls();
 
     const handleInput = (e) => {
         if (!isLoaded || mode !== "mark") return;
@@ -360,14 +415,36 @@ async function init() {
     animate();
 }
 
-// Low-Level Geometric Distance Calculator from a custom point to a line segment vector
+function setupWebTestingControls() {
+    const btnRotate = document.getElementById("web-btn-rotate");
+    const btnMark = document.getElementById("web-btn-mark");
+    const debugBox = document.getElementById("diagnostic-results");
+
+    btnRotate.addEventListener("click", () => {
+        mode = "rotate";
+        btnRotate.className = "test-btn active";
+        btnMark.className = "test-btn";
+        controls.enabled = true; // Unlock OrbitControls to smoothly rotate, move, and pan the model
+        debugBox.innerHTML = "Navigation active. Drag to rotate model, shift-drag to pan spatial layout.";
+    });
+
+    btnMark.addEventListener("click", () => {
+        mode = "mark";
+        btnRotate.className = "test-btn";
+        btnMark.className = "test-btn active";
+        controls.enabled = false; // Lock out camera changes so clicks resolve perfectly as layer pin locations
+        debugBox.innerHTML = "Anatomy probing active. Tap any intersection skin plane area to track depths...";
+    });
+}
+
+// Low-Level Segment Vector Calculus
 function getDistanceToSegment(probePoint, nodeA, nodeB) {
     const ab = new THREE.Vector3().subVectors(nodeB, nodeA);
     const ap = new THREE.Vector3().subVectors(probePoint, nodeA);
     let t = ap.dot(ab) / ab.lengthSq();
-    t = Math.max(0, Math.min(1, t)); // Constrain projection bounds strictly within terminal nodes
-    const closestIntersection = new THREE.Vector3().copy(nodeA).addScaledVector(ab, t);
-    return probePoint.distanceTo(closestIntersection);
+    t = Math.max(0, Math.min(1, t)); // Constrain projection bounds strictly within bounds of line segment length
+    const closestPoint = new THREE.Vector3().copy(nodeA).addScaledVector(ab, t);
+    return probePoint.distanceTo(closestPoint);
 }
 
 function performLayeredRaycast() {
@@ -379,7 +456,7 @@ function performLayeredRaycast() {
         let activeBBoxRegion = "External Surface";
         let isSelectionDorsal = true;
         
-        // Find matching spatial box volumes inside your PRESET_REGIONS definitions
+        // Match user interaction click directly onto overlapping preset region volume boxes
         regionGroup.children.forEach(box => {
             const side = currentFoot === "left" ? "Left foot" : "Right foot";
             if (!box.userData.name.includes(side)) return;
@@ -393,7 +470,7 @@ function performLayeredRaycast() {
             }
         });
 
-        // Push marker dot element onto selection layer
+        // Add 3D red pinpoint mesh sphere indicator
         const dot = new THREE.Mesh(
             new THREE.SphereGeometry(0.008), 
             new THREE.MeshBasicMaterial({ color: 0xff4400 })
@@ -403,39 +480,39 @@ function performLayeredRaycast() {
         
         const cleanName = activeBBoxRegion.replace(/Left foot - |Right foot - /g, "");
         
-        // Initialize dynamic structured output diagnosis stack
+        // Structured diagnosis dictionary array stack initialization
         let diagnosticsArray = [];
         
-        // Push primary superficial anchor
+        // Output base surface layer properties
         diagnosticsArray.push({
             name: cleanName,
-            type: cleanName.toLowerCase().includes("joint") ? "Joint Complex" : "Surface Boundary Zone",
+            type: cleanName.toLowerCase().includes("joint") ? "Joint Complex" : "Surface Boundary Envelope",
             layer: "superficial",
-            pathologies: ["Surface Friction Injury", "Localized Compression"]
+            pathologies: ["Articular Strain Zone", "Surface Friction Neuropathy"]
         });
 
-        const proximitySearchThreshold = 0.038; // 3.8cm multi-layer entry depth clip threshold
+        const entryDepthThreshold = 0.038; // 3.8cm multi-layer query bubble radius
 
-        // Map and look up deep tracking entries inside the tracer json file records
+        // Loop through point clouds across segments inside json data records
         if (jsonDatabase && jsonDatabase.anatomical_database) {
             jsonDatabase.anatomical_database.forEach(item => {
-                let absoluteTrackMinDistance = Infinity;
+                let segmentMinDistance = Infinity;
 
                 for (let i = 0; i < item.coordinates.length - 1; i++) {
                     const nodeA = new THREE.Vector3(...item.coordinates[i]);
                     const nodeB = new THREE.Vector3(...item.coordinates[i+1]);
                     const distance = getDistanceToSegment(hitPoint, nodeA, nodeB);
-                    if (distance < absoluteTrackMinDistance) {
-                        absoluteTrackMinDistance = distance;
+                    if (distance < segmentMinDistance) {
+                        segmentMinDistance = distance;
                     }
                 }
 
-                if (absoluteTrackMinDistance <= proximitySearchThreshold) {
+                if (segmentMinDistance <= entryDepthThreshold) {
                     const labelLower = item.label.toLowerCase();
                     const cleanType = item.type.replace(/_/g, " ");
                     const profile = item.clinical_profile || {};
 
-                    // Active Anti-Crossover Velvet Rope Filter
+                    // Directional Filter Architecture
                     if (isSelectionDorsal && (labelLower.includes("flexor") || labelLower.includes("plantae") || labelLower.includes("abductor_hallucis"))) return;
                     if (!isSelectionDorsal && (labelLower.includes("extensor") || labelLower.includes("tibialis anterior"))) return;
 
@@ -448,30 +525,30 @@ function performLayeredRaycast() {
                         name: item.label.replace("Left ", "").replace("Right ", ""),
                         type: cleanType,
                         layer: tierLevel,
-                        pathologies: profile.pathologies || ["Structural Strain"]
+                        pathologies: profile.pathologies || ["Tissue Inflammation"]
                     });
                 }
             });
         }
 
-        // Send updates back across Expo bridge framework interface channels
+        // Bridge update logic to push complete multi-layer parameters natively back to app state machine
         markerLogs.push({ region: cleanName });
         if (window.ReactNativeWebView) {
             window.ReactNativeWebView.postMessage(JSON.stringify({
                 count: markerGroup.children.length,
                 region: cleanName,
-                layers: diagnosticsArray // Pass down the full array layer data structure to your mobile state machine!
+                layers: diagnosticsArray // Pushes sorted array payload back onto core app threads
             }));
         }
 
-        // Display results immediately in local UI element card groups
+        // Render dashboard elements dynamically in side HUD frame window
         renderHTMLDiagnosticsUI(diagnosticsArray);
     }
 }
 
 function renderHTMLDiagnosticsUI(stack) {
-    const outputBox = document.getElementById("diagnostic-results");
-    outputBox.innerHTML = "";
+    const container = document.getElementById("diagnostic-results");
+    container.innerHTML = "";
     
     const layerSortOrder = { superficial: 0, mid: 1, deep: 2 };
     stack.sort((a, b) => layerSortOrder[a.layer] - layerSortOrder[b.layer]);
@@ -482,9 +559,9 @@ function renderHTMLDiagnosticsUI(stack) {
         card.innerHTML = `
             <div class="struct-type">${element.type} (${element.layer})</div>
             <div class="struct-label">${element.name}</div>
-            <div class="pathologies">Options: ${element.pathologies.join(", ")}</div>
+            <div class="pathologies">Pathologies: ${element.pathologies.join(", ")}</div>
         `;
-        outputBox.appendChild(card);
+        container.appendChild(card);
     });
 }
 
@@ -541,7 +618,18 @@ window.handleMobileCommand = (json) => {
     if (data.action === 'SELECT') { currentFoot = data.side; loadFoot(); }
     if (data.action === 'SET_MODE') {
         mode = data.mode;
-        controls.enabled = (mode === "rotate"); // Moves, pans, rotates smoothly when mode is "rotate"
+        controls.enabled = (mode === "rotate");
+        
+        // Sync local browser toggle buttons seamlessly with external mobile bridge state transitions
+        const btnRotate = document.getElementById("web-btn-rotate");
+        const btnMark = document.getElementById("web-btn-mark");
+        if (mode === "rotate") {
+            btnRotate.className = "test-btn active";
+            btnMark.className = "test-btn";
+        } else {
+            btnRotate.className = "test-btn";
+            btnMark.className = "test-btn active";
+        }
     }
     if (data.action === 'UNDO') {
         if (markerGroup.children.length > 0) {
