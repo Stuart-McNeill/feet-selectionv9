@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Foot Analysis V5 - GitHub Testing Engine</title>
+    <title>3D Foot Analysis V5 - Anatomy Classifier Engine</title>
     <style>
         body { 
             margin: 0; 
@@ -14,12 +14,12 @@
         }
         #ui-layer { display: none !important; }
         
-        /* Local Web Testing Toolbar - Visible on GitHub Pages for manual validation */
+        /* Web Navigation & Probing Toolbar for GitHub Validation */
         #github-controls {
             position: absolute;
             top: 20px;
             left: 20px;
-            background: rgba(15, 15, 20, 0.9);
+            background: rgba(15, 15, 20, 0.95);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 8px;
             padding: 12px;
@@ -55,7 +55,7 @@
             color: #fff;
         }
 
-        /* Dynamic Diagnostics Sidebar Panel */
+        /* Dynamic Diagnostics Sidebar HUD */
         #diagnostic-display {
             position: absolute;
             bottom: 20px;
@@ -73,13 +73,17 @@
             z-index: 1000;
         }
         .diag-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #ff4400; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;}
-        .diag-card { background: rgba(255,255,255,0.04); padding: 8px; border-radius: 4px; margin-bottom: 6px; border-left: 3px solid #00bcff; }
+        .diag-card { background: rgba(255,255,255,0.04); padding: 10px; border-radius: 4px; margin-bottom: 6px; border-left: 4px solid #00bcff; }
+        
+        /* Color-coded depth visualization */
         .diag-card.superficial { border-left-color: #00ff66; }
         .diag-card.mid { border-left-color: #00bcff; }
         .diag-card.deep { border-left-color: #ffcc00; }
+        
+        .struct-classification { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #ff4400; margin-bottom: 2px; }
         .struct-label { font-size: 13px; font-weight: 600; color: #fff; }
-        .struct-type { font-size: 10px; color: #aaa; text-transform: uppercase; font-weight: bold; }
-        .pathologies { font-size: 11px; color: #ff8888; margin-top: 3px; font-style: italic; }
+        .struct-layer { font-size: 10px; color: #aaa; text-transform: uppercase; }
+        .pathologies { font-size: 11px; color: #ff8888; margin-top: 4px; font-style: italic; }
     </style>
 </head>
 <body>
@@ -90,8 +94,8 @@
 </div>
 
 <div id="diagnostic-display">
-    <div class="diag-title">Anatomical Layer Diagnostics</div>
-    <div id="diagnostic-results">Use the toolbar above to switch profiles. Set to "Probe Anatomy" and click the foot layout to dissect layers...</div>
+    <div class="diag-title">Anatomical Classification HUD</div>
+    <div id="diagnostic-results">Select "Probe Anatomy", then click anywhere on the foot model to cross-reference and review the structural JSON layers...</div>
 </div>
 
 <script type="importmap">
@@ -118,7 +122,7 @@ const PRESET_REGIONS = [
   { name: "Left foot - Hallux Apex", pos: [-0.11505, 0.069, 0.490], rot: [0.235, 0.097, -0.009], scale: [0.08, 0.05, 0.015] },
   { name: "Left foot - Lateral Hallux", pos: [-0.07560, 0.06849, 0.40518], rot: [-0.03458, 0.05742, 0.06437], scale: [0.02562, 0.08314, 0.14051] },
   { name: "Left foot - Medial Hallux", pos: [-0.15606, 0.06700, 0.40831], rot: [0.00000, 0.11673, 0.00000], scale: [0.03781, 0.06493, 0.15382] },
-  { name: "Left foot - Dorsal Hallux", pos: [-0.11970, 0.103, 0.380], rot: [0.138, 0.081, 0.009], scale: [0.10, 0.033, 0.12] },
+  { name: "Left foot - Dorsal Hallux", pos: [-0.11970, 0.103, 0.380], rot: [0.138, 0.081, 0.009], scale: [0.10, 0.033, 0.12] }, // Shortened Z-scale from 0.17 to 0.12
   { name: "Left foot - Plantar Hallux", pos: [-0.12036, 0.03208, 0.41179], rot: [0.00000, 0.00000, 0.00000], scale: [0.10000, 0.03388, 0.15863] },
   { name: "Left foot - Dorsal 1st Metatarsophalangeal joint", pos: [-0.13368, 0.14932, 0.27846], rot: [0.29071, 0.05714, 0.07830], scale: [0.11730, 0.05807, 0.12003] },
   { name: "Left foot - Medial 1st Metatarsophalangeal joint", pos: [-0.17744, 0.07693, 0.26768], rot: [0.01554, 0.00000, 0.00000], scale: [0.03671, 0.10974, 0.13937] },
@@ -127,7 +131,7 @@ const PRESET_REGIONS = [
   { name: "Left foot - Plantar Fibular Sesamoid", pos: [-0.08952, 0.00688, 0.23350], rot: [0.00000, 0.00000, 0.00000], scale: [0.04182, 0.02520, 0.03852] },
   { name: "Left foot - Dorsal 1st Metatarsal", pos: [-0.13058, 0.19897, 0.12122], rot: [0.32092, -0.04192, 0.08089], scale: [0.10811, 0.10000, 0.23570] },
   { name: "Left foot - Medial 1st Metatarsal", pos: [-0.16198, 0.10509, 0.13224], rot: [0.15718, -0.05458, 0.00836], scale: [0.03988, 0.11276, 0.30453] },
-  { name: "Left foot - Plantar 1st Metatarsal", pos: [-0.12261, 0.03913, 0.07892], rot: [0.13096, -0.00243, -0.00878], scale: [0.10220, 0.06527, 0.23585] },
+  { name: "Left foot - Plantar 1st Metatarsal", pos: [-0.12261, 0.03913, 0.07892], rot: [0.13096, -0.00243, 0.00878], scale: [0.10220, 0.06527, 0.23585] },
   { name: "Left foot - Dorsal 2nd Metatarsophalangeal joint", pos: [-0.03394, 0.16079, 0.28600], rot: [0.32320, 0.05148, 0.00935], scale: [0.08952, 0.07761, 0.10000] },
   { name: "Left foot - Dorsal Medial Cuneiform", pos: [-0.11574, 0.24685, -0.00388], rot: [0.29866, -0.05346, -0.01968], scale: [0.07438, 0.10000, 0.09346] },
   { name: "Left foot - Medial Medial Cuneiform", pos: [-0.17017, 0.14822, -0.04030], rot: [0.20940, -0.01620, 0.01669], scale: [0.10000, 0.12331, 0.08063] },
@@ -218,7 +222,7 @@ const PRESET_REGIONS = [
   { name: "Left foot - Tarsal Tunnel", pos: [-0.10766, 0.18883, -0.34913], rot: [0.00479, -0.22283, 0.00565], scale: [0.10000, 0.15668, 0.15360] },
   { name: "Left foot - Posterior Midportion", pos: [-0.02098, 0.28612, -0.47395], rot: [0.00000, 0.00000, 0.00000], scale: [0.10000, 0.19952, 0.10000] },
   { name: "Left foot - Posterior Lateral Malleolus", pos: [0.08052, 0.23322, -0.39188], rot: [0.00000, 0.04329, 0.00000], scale: [0.10000, 0.21938, 0.07226] },
-  { name: "Left foot - Plantar and Medial Calcaneum", pos: [-0.11637, 0.05356, -0.37980], rot: [0.05205, 0.04505, -0.08730], scale: [0.08797, 0.10000, 0.20756] },
+  { name: "Left foot - Plantar and Medial Calcaneum", pos: [-0.11637, 0.05356, -0.37980], rot: [0.05205, -0.04505, 0.08730], scale: [0.08797, 0.10000, 0.20756] },
   { name: "Left foot - Plantar Central Band Fascia", pos: [0.00000, 0.03738, -0.22424], rot: [0.03827, 0.00121, -0.00191], scale: [0.10000, 0.10000, 0.10000] },
   { name: "Left foot - Posterior Leg", pos: [-0.02028, 0.50000, -0.42240], rot: [0.00000, 0.00000, 0.00000], scale: [0.25430, 0.43112, 0.12119] },
 
@@ -285,7 +289,7 @@ const PRESET_REGIONS = [
   { name: "Right foot - 5th Toe Apex", pos: [-0.14734, 0.03651, 0.35117], rot: [0.95715, -0.02880, 0.12951], scale: [0.01931, 0.01921, 0.00342] },
   { name: "Right foot - 5th Toenail", pos: [-0.15017, 0.04966, 0.34246], rot: [2.06427, 0.02082, -1.54951], scale: [0.02826, 0.02915, 0.00717] },
   { name: "Right foot - Dorsal 5th Distal Interphalangeal joint", pos: [-0.15283, 0.07293, 0.34000], rot: [0.35443, 0.05178, 0.06247], scale: [0.02608, 0.03114, 0.00835] },
-  { name: "Right foot - Dorsal 5th Proximal Interphalangeal joint", pos: [-0.15502, 0.07566, 0.32051], rot: [0.36554, -0.02790, 0.04379], scale: [0.03082, 0.04780, 0.00763] },
+  { name: "Right foot - Dorsal 5th Proximal Interphalangeal joint", pos: [-0.15502, 0.07566, 0.32051], rot: [0.36554, 0.02790, 0.04379], scale: [0.03082, 0.04780, 0.00763] },
   { name: "Right foot - Plantar 5th Distal Interphalangeal joint", pos: [-0.14818, 0.03843, 0.33128], rot: [0.27723, -0.03712, 0.12412], scale: [0.03019, 0.04120, 0.00807] },
   { name: "Right foot - Plantar 5th Proximal Interphalangeal joint", pos: [-0.15532, 0.04729, 0.30191], rot: [0.30274, -0.02221, 0.07564], scale: [0.03099, 0.04631, 0.00751] },
   { name: "Right foot - 5th Dorsal Toe", pos: [-0.15913, 0.07617, 0.30178], rot: [0.27989, 0.05807, 0.12434], scale: [0.03655, 0.01103, 0.07757] },
@@ -335,6 +339,13 @@ const PRESET_REGIONS = [
   { name: "Right foot - Plantar Central Band Fascia", pos: [0.00000, 0.03738, -0.22424], rot: [0.03827, -0.00121, 0.00191], scale: [0.10000, 0.10000, 0.10000] },
   { name: "Right foot - Posterior Leg", pos: [0.02028, 0.50000, -0.42240], rot: [0.00000, 0.00000, 0.00000], scale: [0.25430, 0.43112, 0.12119] }
 ];
+// Replicate identical mirrored logic layout for global standard coordination
+PRESET_REGIONS.push(...PRESET_REGIONS.filter(r => r.name.startsWith("Left")).map(r => ({
+    name: r.name.replace("Left", "Right"),
+    pos: [r.pos[0] * -1, r.pos[1], r.pos[2]],
+    rot: [r.rot[0], r.rot[1] * -1, r.rot[2] * -1],
+    scale: [...r.scale]
+})));
 
 const urls = {
     left: "https://stuart-mcneill.github.io/3Dfootselection/Leftfoot.glb",
@@ -349,7 +360,7 @@ let footGroup = new THREE.Group();
 let markerGroup = new THREE.Group();
 let regionGroup = new THREE.Group(); 
 let isLoaded = false;
-let mode = "rotate"; // Standard base configuration property
+let mode = "rotate"; 
 let markerLogs = [];
 let jsonDatabase = null;
 
@@ -381,15 +392,15 @@ async function init() {
 
     PRESET_REGIONS.forEach(data => addRegion(data.name, data.pos, data.rot, data.scale));
 
-    // Pull database contents safely from repository directory tree framework
+    // ACTIVE REVIEWS ENGINE: Pull database contents directly from repository folder root
     try {
         const response = await fetch('anatomy_tracer.json');
         jsonDatabase = await response.json();
+        console.log("Anatomical database successfully parsed and initialized.");
     } catch (e) {
-        console.warn("Local JSON database template not found. Ensure anatomy_tracer.json sits in your server root directory.");
+        console.warn("Local JSON database file could not be reviewed. Verify architecture positioning.");
     }
 
-    // Bind local web interface buttons for browser manual verification testing
     setupWebTestingControls();
 
     const handleInput = (e) => {
@@ -424,27 +435,27 @@ function setupWebTestingControls() {
         mode = "rotate";
         btnRotate.className = "test-btn active";
         btnMark.className = "test-btn";
-        controls.enabled = true; // Unlock OrbitControls to smoothly rotate, move, and pan the model
-        debugBox.innerHTML = "Navigation active. Drag to rotate model, shift-drag to pan spatial layout.";
+        controls.enabled = true; 
+        debugBox.innerHTML = "Navigation active. Drag to spin model layout smoothly.";
     });
 
     btnMark.addEventListener("click", () => {
         mode = "mark";
         btnRotate.className = "test-btn";
         btnMark.className = "test-btn active";
-        controls.enabled = false; // Lock out camera changes so clicks resolve perfectly as layer pin locations
-        debugBox.innerHTML = "Anatomy probing active. Tap any intersection skin plane area to track depths...";
+        controls.enabled = false; 
+        debugBox.innerHTML = "Anatomy probing active. Click the foot surface planes to review classifications...";
     });
 }
 
-// Low-Level Segment Vector Calculus
+// Low-Level Math: Perpendicular Line Projection
 function getDistanceToSegment(probePoint, nodeA, nodeB) {
     const ab = new THREE.Vector3().subVectors(nodeB, nodeA);
     const ap = new THREE.Vector3().subVectors(probePoint, nodeA);
     let t = ap.dot(ab) / ab.lengthSq();
-    t = Math.max(0, Math.min(1, t)); // Constrain projection bounds strictly within bounds of line segment length
-    const closestPoint = new THREE.Vector3().copy(nodeA).addScaledVector(ab, t);
-    return probePoint.distanceTo(closestPoint);
+    t = Math.max(0, Math.min(1, t)); 
+    const closestIntersection = new THREE.Vector3().copy(nodeA).addScaledVector(ab, t);
+    return probePoint.distanceTo(closestIntersection);
 }
 
 function performLayeredRaycast() {
@@ -456,7 +467,6 @@ function performLayeredRaycast() {
         let activeBBoxRegion = "External Surface";
         let isSelectionDorsal = true;
         
-        // Match user interaction click directly onto overlapping preset region volume boxes
         regionGroup.children.forEach(box => {
             const side = currentFoot === "left" ? "Left foot" : "Right foot";
             if (!box.userData.name.includes(side)) return;
@@ -470,85 +480,90 @@ function performLayeredRaycast() {
             }
         });
 
-        // Add 3D red pinpoint mesh sphere indicator
-        const dot = new THREE.Mesh(
-            new THREE.SphereGeometry(0.008), 
-            new THREE.MeshBasicMaterial({ color: 0xff4400 })
-        );
+        markerGroup.clear(); // Lock down indicator pins cleanly to solitary selection focus points
+        const dot = new THREE.Mesh(new THREE.SphereGeometry(0.007), new THREE.MeshBasicMaterial({ color: 0xff4400 }));
         dot.position.copy(hitPoint);
         markerGroup.add(dot);
         
         const cleanName = activeBBoxRegion.replace(/Left foot - |Right foot - /g, "");
-        
-        // Structured diagnosis dictionary array stack initialization
         let diagnosticsArray = [];
         
-        // Output base surface layer properties
+        // 1. Identify primary box structural category
+        let baseCategory = "Ligament / Joint Capsule";
+        if (cleanName.toLowerCase().includes("joint")) baseCategory = "Joint Complex";
+        else if (cleanName.toLowerCase().includes("toenail") || cleanName.toLowerCase().includes("apex")) baseCategory = "Surface Marker";
+
         diagnosticsArray.push({
             name: cleanName,
-            type: cleanName.toLowerCase().includes("joint") ? "Joint Complex" : "Surface Boundary Envelope",
+            classification: baseCategory,
             layer: "superficial",
-            pathologies: ["Articular Strain Zone", "Surface Friction Neuropathy"]
+            pathologies: ["Articular Surface Compression", "Friction Bruising"]
         });
 
-        const entryDepthThreshold = 0.038; // 3.8cm multi-layer query bubble radius
+        const proximitySearchThreshold = 0.038; 
 
-        // Loop through point clouds across segments inside json data records
+        // 2. ACTIVE REVIEWS: Loop through JSON structure file elements to pull specific types
         if (jsonDatabase && jsonDatabase.anatomical_database) {
             jsonDatabase.anatomical_database.forEach(item => {
-                let segmentMinDistance = Infinity;
+                let absoluteTrackMinDistance = Infinity;
 
                 for (let i = 0; i < item.coordinates.length - 1; i++) {
                     const nodeA = new THREE.Vector3(...item.coordinates[i]);
                     const nodeB = new THREE.Vector3(...item.coordinates[i+1]);
                     const distance = getDistanceToSegment(hitPoint, nodeA, nodeB);
-                    if (distance < segmentMinDistance) {
-                        segmentMinDistance = distance;
+                    if (distance < absoluteTrackMinDistance) {
+                        absoluteTrackMinDistance = distance;
                     }
                 }
 
-                if (segmentMinDistance <= entryDepthThreshold) {
+                if (absoluteTrackMinDistance <= proximitySearchThreshold) {
                     const labelLower = item.label.toLowerCase();
-                    const cleanType = item.type.replace(/_/g, " ");
-                    const profile = item.clinical_profile || {};
-
-                    // Directional Filter Architecture
+                    
+                    // Directional Mask Filter Engine
                     if (isSelectionDorsal && (labelLower.includes("flexor") || labelLower.includes("plantae") || labelLower.includes("abductor_hallucis"))) return;
                     if (!isSelectionDorsal && (labelLower.includes("extensor") || labelLower.includes("tibialis anterior"))) return;
 
+                    // Parse explicit clinical categorization mappings from JSON type properties
+                    let structuralClassification = "Tendon Pathway";
+                    if (item.type.includes("retinaculum")) {
+                        structuralClassification = "Retinaculum Structure";
+                    } else if (item.type.includes("muscle") || labelLower.includes("plantae")) {
+                        structuralClassification = "Muscle Belly / Unit";
+                    } else if (labelLower.includes("nerve")) {
+                        structuralClassification = "Peripheral Nerve Track";
+                    }
+
                     let tierLevel = "mid";
-                    if (item.type === "retinaculum" || item.type === "retinaculum_complex") tierLevel = "mid";
+                    if (item.type.includes("retinaculum")) tierLevel = "mid";
                     else if (labelLower.includes("brevis") || labelLower.includes("interossei")) tierLevel = "deep";
                     else tierLevel = "deep";
 
                     diagnosticsArray.push({
-                        name: item.label.replace("Left ", "").replace("Right ", ""),
-                        type: cleanType,
+                        name: item.label,
+                        classification: structuralClassification,
                         layer: tierLevel,
-                        pathologies: profile.pathologies || ["Tissue Inflammation"]
+                        pathologies: item.clinical_profile?.pathologies || ["Tissue strain / Inflammatory overload"]
                     });
                 }
             });
         }
 
-        // Bridge update logic to push complete multi-layer parameters natively back to app state machine
         markerLogs.push({ region: cleanName });
         if (window.ReactNativeWebView) {
             window.ReactNativeWebView.postMessage(JSON.stringify({
                 count: markerGroup.children.length,
                 region: cleanName,
-                layers: diagnosticsArray // Pushes sorted array payload back onto core app threads
+                layers: diagnosticsArray 
             }));
         }
 
-        // Render dashboard elements dynamically in side HUD frame window
         renderHTMLDiagnosticsUI(diagnosticsArray);
     }
 }
 
 function renderHTMLDiagnosticsUI(stack) {
-    const container = document.getElementById("diagnostic-results");
-    container.innerHTML = "";
+    const outputBox = document.getElementById("diagnostic-results");
+    outputBox.innerHTML = "";
     
     const layerSortOrder = { superficial: 0, mid: 1, deep: 2 };
     stack.sort((a, b) => layerSortOrder[a.layer] - layerSortOrder[b.layer]);
@@ -557,11 +572,12 @@ function renderHTMLDiagnosticsUI(stack) {
         const card = document.createElement("div");
         card.className = `diag-card ${element.layer}`;
         card.innerHTML = `
-            <div class="struct-type">${element.type} (${element.layer})</div>
+            <div class="struct-classification">${element.classification}</div>
             <div class="struct-label">${element.name}</div>
-            <div class="pathologies">Pathologies: ${element.pathologies.join(", ")}</div>
+            <div class="struct-layer">${element.layer} Anatomy layer</div>
+            <div class="pathologies">Differential Choices: ${element.pathologies.join(", ")}</div>
         `;
-        container.appendChild(card);
+        outputBox.appendChild(card);
     });
 }
 
@@ -612,7 +628,6 @@ function addRegion(name, pos, rot, scale) {
     regionGroup.add(mesh);
 }
 
-// --- EXPO BRIDGE COMMANDS ---
 window.handleMobileCommand = (json) => {
     const data = JSON.parse(json);
     if (data.action === 'SELECT') { currentFoot = data.side; loadFoot(); }
@@ -620,7 +635,6 @@ window.handleMobileCommand = (json) => {
         mode = data.mode;
         controls.enabled = (mode === "rotate");
         
-        // Sync local browser toggle buttons seamlessly with external mobile bridge state transitions
         const btnRotate = document.getElementById("web-btn-rotate");
         const btnMark = document.getElementById("web-btn-mark");
         if (mode === "rotate") {
