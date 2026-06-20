@@ -340,6 +340,7 @@ const PRESET_REGIONS = [
   { name: "Right foot - Plantar Central Band Fascia", pos: [0.00000, 0.03738, -0.22424], rot: [0.03827, -0.00121, 0.00191], scale: [0.10000, 0.10000, 0.10000] },
   { name: "Right foot - Posterior Leg", pos: [0.02028, 0.50000, -0.42240], rot: [0.00000, 0.00000, 0.00000], scale: [0.25430, 0.43112, 0.12119] }
 ];
+
 // Replicate identical mirrored logic layout for global standard coordination
 PRESET_REGIONS.push(...PRESET_REGIONS.filter(r => r.name.startsWith("Left")).map(r => ({
     name: r.name.replace("Left", "Right"),
@@ -393,39 +394,27 @@ async function init() {
 
     PRESET_REGIONS.forEach(data => addRegion(data.name, data.pos, data.rot, data.scale));
 
-    // ACTIVE REVIEWS ENGINE: Pull database contents directly from repository folder root.
-    // Resolve relative to THIS document's own URL (not the page origin) so it works
-    // whether the html is at the repo root or in a subfolder on GitHub Pages.
     const jsonUrl = new URL('anatomy_tracer.json', window.location.href).href;
     const debugBox = document.getElementById("diagnostic-results");
     const jsonStatus = document.getElementById("json-status");
     try {
         const response = await fetch(jsonUrl, { cache: "no-store" });
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status} fetching ${jsonUrl}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         jsonDatabase = await response.json();
         const count = jsonDatabase?.anatomical_database?.length ?? 0;
-        console.log(`Anatomical database successfully parsed and initialized (${count} structures).`);
         jsonStatus.style.color = "#00ff66";
         jsonStatus.textContent = `✓ ${count} soft tissue structures loaded`;
-        if (!count) {
-            debugBox.innerHTML = `<span style="color:#ffcc00">Loaded ${jsonUrl} but it contained no anatomical_database entries.</span>`;
-        }
     } catch (e) {
         console.error("Local JSON database file could not be loaded:", e);
         jsonStatus.style.color = "#ff5555";
         jsonStatus.textContent = `✗ anatomy_tracer.json failed to load`;
-        // Surface this on screen too — silent failure is why soft tissue stopped
-        // showing up before; a 404 or JSON syntax error must be visible.
-        debugBox.innerHTML = `<span style="color:#ff5555">⚠ Could not load anatomy_tracer.json (${e.message}).<br>Soft tissue / muscle / tendon / retinaculum data will be unavailable — only bony PRESET_REGIONS will work.<br>Check that anatomy_tracer.json sits alongside this HTML file at:<br><code style="font-size:10px">${jsonUrl}</code></span>`;
+        debugBox.innerHTML = `<span style="color:#ff5555">⚠ Could not load anatomy_tracer.json (${e.message}). Check folder directory placement.</span>`;
     }
 
     setupWebTestingControls();
 
     const handleInput = (e) => {
         if (!isLoaded || mode !== "mark") return;
-        
         if (e.type === 'touchstart') e.preventDefault();
 
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -468,16 +457,6 @@ function setupWebTestingControls() {
     });
 }
 
-// Low-Level Math: Perpendicular Line Projection
-function getDistanceToSegment(probePoint, nodeA, nodeB) {
-    const ab = new THREE.Vector3().subVectors(nodeB, nodeA);
-    const ap = new THREE.Vector3().subVectors(probePoint, nodeA);
-    let t = ap.dot(ab) / ab.lengthSq();
-    t = Math.max(0, Math.min(1, t)); 
-    const closestIntersection = new THREE.Vector3().copy(nodeA).addScaledVector(ab, t);
-    return probePoint.distanceTo(closestIntersection);
-}
-
 function performLayeredRaycast() {
     raycaster.setFromCamera(mouse, camera);
     const hits = raycaster.intersectObjects(footGroup.children, true);
@@ -485,7 +464,7 @@ function performLayeredRaycast() {
     if (hits.length > 0) {
         const hitPoint = hits[0].point;
         let activeBBoxRegion = "External Surface";
-        let surfaceSide = "unknown"; // "dorsal" | "plantar" | "unknown" — only set when a bony box actually matched
+        let surfaceSide = "unknown"; 
         
         regionGroup.children.forEach(box => {
             const side = currentFoot === "left" ? "Left foot" : "Right foot";
@@ -503,6 +482,7 @@ function performLayeredRaycast() {
             }
         });
 
+        markerGroup.clear(); 
         const dot = new THREE.Mesh(new THREE.SphereGeometry(0.007), new THREE.MeshBasicMaterial({ color: 0xff4400 }));
         dot.position.copy(hitPoint);
         markerGroup.add(dot);
@@ -510,7 +490,6 @@ function performLayeredRaycast() {
         const cleanName = activeBBoxRegion.replace(/Left foot - |Right foot - /g, "");
         let diagnosticsArray = [];
         
-        // 1. Identify primary box structural category
         let baseCategory = "Ligament / Joint Capsule";
         if (cleanName.toLowerCase().includes("joint")) baseCategory = "Joint Complex";
         else if (cleanName.toLowerCase().includes("toenail") || cleanName.toLowerCase().includes("apex")) baseCategory = "Surface Marker";
@@ -522,32 +501,47 @@ function performLayeredRaycast() {
             pathologies: ["Articular Surface Compression", "Friction Bruising"]
         });
 
-        const proximitySearchThreshold = 0.038; 
+        // TRAJECTORY ENTRY DEPTH LOGIC ENGINE
+        const maxLateralTolerance = 0.015; // 1.5cm side-to-side alignment limit around the ray vector line
+        const maxDepthLimit = 0.025;       // 2.5cm absolute target depth limit inward from skin hit point
 
-        // 2. ACTIVE REVIEWS: Loop through JSON structure file elements to pull specific types
         if (jsonDatabase && jsonDatabase.anatomical_database) {
             jsonDatabase.anatomical_database.forEach(item => {
-                let absoluteTrackMinDistance = Infinity;
+                let minDistanceToRayLine = Infinity;
+                let calculatedDepthFromSurface = 0;
 
                 for (let i = 0; i < item.coordinates.length - 1; i++) {
                     const nodeA = new THREE.Vector3(...item.coordinates[i]);
                     const nodeB = new THREE.Vector3(...item.coordinates[i+1]);
-                    const distance = getDistanceToSegment(hitPoint, nodeA, nodeB);
-                    if (distance < absoluteTrackMinDistance) {
-                        absoluteTrackMinDistance = distance;
+                    
+                    // Sample segments linearly to accurately monitor proximity along ray trajectory
+                    const subdivisions = 10;
+                    for (let s = 0; s <= subdivisions; s++) {
+                        const alpha = s / subdivisions;
+                        const segmentPoint = new THREE.Vector3().lerpVectors(nodeA, nodeB, alpha);
+                        
+                        // Perpendicular offset distance relative to cursor ray line vector
+                        const vectorToSegment = new THREE.Vector3().subVectors(segmentPoint, raycaster.ray.origin);
+                        const distanceToRayLine = new THREE.Vector3().crossVectors(vectorToSegment, raycaster.ray.direction).length();
+                        
+                        // Determine depth translation parameter coordinates along entry line
+                        const fullRayTravelDistance = vectorToSegment.dot(raycaster.ray.direction);
+                        const surfaceDepth = fullRayTravelDistance - raycaster.ray.origin.distanceTo(hitPoint);
+                        
+                        if (distanceToRayLine < minDistanceToRayLine) {
+                            minDistanceToRayLine = distanceToRayLine;
+                            calculatedDepthFromSurface = surfaceDepth;
+                        }
                     }
                 }
 
-                if (absoluteTrackMinDistance <= proximitySearchThreshold) {
+                // Check structural inclusion strictly against directional ray alignment limits
+                if (minDistanceToRayLine <= maxLateralTolerance && calculatedDepthFromSurface >= 0 && calculatedDepthFromSurface <= maxDepthLimit) {
                     const labelLower = item.label.toLowerCase();
                     
-                    // Directional Mask Filter Engine — only filters when we actually
-                    // know which surface was hit; "unknown" lets everything through
-                    // so plantar soft tissue isn't wrongly hidden as if dorsal.
                     if (surfaceSide === "dorsal" && (labelLower.includes("flexor") || labelLower.includes("plantae") || labelLower.includes("abductor_hallucis"))) return;
                     if (surfaceSide === "plantar" && (labelLower.includes("extensor") || labelLower.includes("tibialis anterior"))) return;
 
-                    // Parse explicit clinical categorization mappings from JSON type properties
                     let structuralClassification = "Tendon Pathway";
                     if (item.type.includes("retinaculum")) {
                         structuralClassification = "Retinaculum Structure";
@@ -612,99 +606,42 @@ function loadFoot() {
     markerLogs = [];
 
     new GLTFLoader().load(urls[currentFoot], (gltf) => {
-        const model = gltf.scene;
-        model.traverse(c => { 
-            if(c.isMesh) {
-                c.material = new THREE.MeshStandardMaterial({ 
-                    color: 0xcccccc, roughness: 0.4, metalness: 0.2 
-                }); 
-            }
-        });
-        
-        const box = new THREE.Box3().setFromObject(model);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-
-        model.position.x = -center.x;
-        model.position.y = -box.min.y; 
-        model.position.z = -center.z;
-
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const scaleFactor = 1.0 / maxDim;
-        model.scale.setScalar(scaleFactor);
-        model.position.multiplyScalar(scaleFactor);
-
-        footGroup.add(model);
-        camera.position.set(0, 1.2, 2.5);
-        controls.target.set(0, 0.4, 0);
-        isLoaded = true;
+        const model = gltf.scene; model.traverse(c => { if(c.isMesh) { c.material = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.4, metalness: 0.2 }); } });
+        const box = new THREE.Box3().setFromObject(model); const size = new THREE.Vector3(); box.getSize(size); const center = new THREE.Vector3(); box.getCenter(center);
+        model.position.x = -center.x; model.position.y = -box.min.y; model.position.z = -center.z;
+        const maxDim = Math.max(size.x, size.y, size.z); const scaleFactor = 1.0 / maxDim; model.scale.setScalar(scaleFactor); model.position.multiplyScalar(scaleFactor);
+        footGroup.add(model); camera.position.set(0, 1.2, 2.5); controls.target.set(0, 0.4, 0); isLoaded = true;
     });
 }
 
 function addRegion(name, pos, rot, scale) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
-    mesh.position.set(...pos);
-    mesh.rotation.set(...rot);
-    mesh.scale.set(...scale);
-    mesh.userData.name = name;
-    regionGroup.add(mesh);
+    mesh.position.set(...pos); mesh.rotation.set(...rot); mesh.scale.set(...scale); mesh.userData.name = name; regionGroup.add(mesh);
 }
 
 window.handleMobileCommand = (json) => {
     const data = JSON.parse(json);
     if (data.action === 'SELECT') { currentFoot = data.side; loadFoot(); }
     if (data.action === 'SET_MODE') {
-        mode = data.mode;
-        controls.enabled = (mode === "rotate");
-        
-        const btnRotate = document.getElementById("web-btn-rotate");
-        const btnMark = document.getElementById("web-btn-mark");
-        if (mode === "rotate") {
-            btnRotate.className = "test-btn active";
-            btnMark.className = "test-btn";
-        } else {
-            btnRotate.className = "test-btn";
-            btnMark.className = "test-btn active";
-        }
+        mode = data.mode; controls.enabled = (mode === "rotate");
+        const btnRotate = document.getElementById("web-btn-rotate"); const btnMark = document.getElementById("web-btn-mark");
+        if (mode === "rotate") { btnRotate.className = "test-btn active"; btnMark.className = "test-btn"; } else { btnRotate.className = "test-btn"; btnMark.className = "test-btn active"; }
     }
     if (data.action === 'UNDO') {
         if (markerGroup.children.length > 0) {
-            markerGroup.remove(markerGroup.children[markerGroup.children.length - 1]);
-            markerLogs.pop();
+            markerGroup.remove(markerGroup.children[markerGroup.children.length - 1]); markerLogs.pop();
             const lastRegion = markerLogs.length > 0 ? markerLogs[markerLogs.length - 1].region : "READY";
-            if (window.ReactNativeWebView) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({
-                    count: markerGroup.children.length,
-                    region: lastRegion
-                }));
-            }
+            if (window.ReactNativeWebView) { window.ReactNativeWebView.postMessage(JSON.stringify({ count: markerGroup.children.length, region: lastRegion })); }
         }
     }
     if (data.action === 'CLEAR') {
-        markerGroup.clear();
-        markerLogs = [];
-        if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-                count: 0,
-                region: "READY"
-            }));
-        }
+        markerGroup.clear(); markerLogs = [];
+        if (window.ReactNativeWebView) { window.ReactNativeWebView.postMessage(JSON.stringify({ count: 0, region: "READY" })); }
     }
 };
 
-function onResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene, camera);
-}
+function onResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
 </script>
 </body>
 </html>
